@@ -26,20 +26,58 @@ plain `docs/` directory that's actually a symlink to a single shared root.
 
 ## Install
 
-Clone this repo to wherever you want the shared root to live (e.g.
-`~/workplace/shared-docs`), then put `bin/` on your PATH:
+**Prerequisites:** macOS or Linux, `git`, and a bash-compatible shell
+(zsh is fine — that's the macOS default since Catalina). No `brew`,
+no `pip`, no Node, no compile step.
+
+### 1. Clone the repo to wherever you want the shared docs to live
+
+The repo's own directory **is** the shared root. The conventional
+location is `~/workplace/shared-docs`:
 
 ```bash
-echo 'export PATH="$HOME/workplace/shared-docs/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-docs-hub init                          # creates plans/, architecture/, runbooks/, AGENTS.md, config
-docs-hub link ~/workplace/projectA
-docs-hub link ~/workplace/projectB
-docs-hub status
+mkdir -p ~/workplace
+git clone https://github.com/lukerjin/Docs-Hub.git ~/workplace/shared-docs
 ```
 
-`docs-hub init` defaults to `~/workplace/shared-docs`. To use a different
-location, pass it as the first argument: `docs-hub init ~/Documents/docs`.
+(If you want it somewhere else, e.g. `~/Documents/shared-docs`, swap
+the path. The CLI works the same.)
+
+### 2. Put `bin/` on your PATH
+
+Pick the right line for your shell. Check with `echo $SHELL`:
+
+```bash
+# zsh (default on macOS):
+echo 'export PATH="$HOME/workplace/shared-docs/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# bash (most Linux, older macOS):
+echo 'export PATH="$HOME/workplace/shared-docs/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 3. Verify
+
+```bash
+docs-hub --version          # → docs-hub 0.1.0
+```
+
+If you see `command not found`, the PATH didn't take effect — see
+[Troubleshooting](#troubleshooting).
+
+### 4. Initialize and link your first project
+
+```bash
+docs-hub init                          # creates plans/, architecture/, AGENTS.md, config, …
+docs-hub link ~/workplace/projectA
+docs-hub link ~/workplace/projectB
+docs-hub status                        # should show both projects: OK
+```
+
+`docs-hub init` defaults to `~/workplace/shared-docs`. To use a
+different location, pass it as the first argument:
+`docs-hub init ~/Documents/docs`.
 
 ## Commands
 
@@ -147,6 +185,77 @@ Targets macOS (BSD `stat`, `date`, `readlink`) but works on Linux too.
 Bash 3.2+ is sufficient. Required tools are all standard: `ln`, `find`,
 `grep`, `awk`, `sed`, `mkdir`, `readlink`, `stat`. `rg` is used
 opportunistically by `docs-hub search` if installed.
+
+## Troubleshooting
+
+**`command not found: docs-hub`**
+
+PATH didn't take effect. Check:
+
+```bash
+echo $PATH | tr ':' '\n' | grep shared-docs   # should print the bin path
+```
+
+If it doesn't appear, you probably edited the wrong shell rc file or
+opened a new terminal that hasn't sourced it. Try again with `~/.zshrc`
+vs `~/.bashrc` per [Install §2](#2-put-bin-on-your-path), or just call
+the script directly to confirm it works:
+
+```bash
+~/workplace/shared-docs/bin/docs-hub --version
+```
+
+**`Permission denied` running `docs-hub`**
+
+The script lost its executable bit (rare, but happens after some `git`
+operations on Windows-touched repos):
+
+```bash
+chmod +x ~/workplace/shared-docs/bin/docs-hub
+```
+
+**`shared-docs root not found` from any command**
+
+Either the path moved, or `DOCSHUB_ROOT` is set to the wrong place.
+Check what the CLI thinks the root is:
+
+```bash
+docs-hub status                  # first line shows the root path
+echo "$DOCSHUB_ROOT"             # empty means "auto-detect"
+```
+
+If you actually moved the shared-docs directory, just update the PATH
+line in your shell rc.
+
+**`link` says my docs already exist with N files — what's safe?**
+
+You'll be prompted. On confirm, the existing `<project>/docs/` is moved
+to `<project>/docs.bak.<timestamp>` (nothing deleted). To restore, run
+`docs-hub unlink <project>` — it'll offer to restore the most recent
+backup.
+
+**`status` reports `BROKEN` for a project**
+
+The symlink points to something other than the shared root, or its
+target is missing. To fix a missing-target symlink:
+
+```bash
+docs-hub link <project-path> --repair
+```
+
+For a wrong-target symlink, remove it manually first
+(`rm <project>/docs`) then re-`link`.
+
+**My `settings:` block in `docs.config.yml` disappeared**
+
+It shouldn't — the config writer preserves it verbatim across `link`
+and `unlink`. If it did, please file an issue with the before/after
+contents.
+
+**I'm on Windows**
+
+Not supported. The CLI relies on POSIX symlinks and a Unix shell.
+WSL works.
 
 ## Tests
 
