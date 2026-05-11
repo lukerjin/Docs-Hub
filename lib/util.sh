@@ -364,6 +364,49 @@ dh_cfg_find_project() {
         | awk -F'\t' -v p="$path" '$2 == p { print; found=1 } END { exit !found }'
 }
 
+# Look up a project by name. Prints TSV row or returns 1.
+dh_cfg_find_project_by_name() {
+    local cfg="$1" name="$2"
+    local rows
+    rows="$(dh_cfg_list_projects "$cfg" 2>/dev/null || true)"
+    [ -z "$rows" ] && return 1
+    printf '%s\n' "$rows" \
+        | awk -F'\t' -v n="$name" '$1 == n { print; found=1 } END { exit !found }'
+}
+
+# Detect which registered project, if any, contains $PWD. Prints the project
+# name on success; returns 1 if PWD is not under any registered project path.
+# Uses longest-prefix match so nested registrations (e.g. /foo and /foo/bar)
+# resolve to the more specific one.
+dh_detect_project_from_cwd() {
+    local cfg="$1"
+    [ -f "$cfg" ] || return 1
+    local cwd
+    cwd="$(pwd -P 2>/dev/null)" || return 1
+
+    local rows
+    rows="$(dh_cfg_list_projects "$cfg")"
+    [ -z "$rows" ] && return 1
+
+    local best_name="" best_len=0
+    while IFS=$'\t' read -r name path link_as linked_at; do
+        [ -z "$path" ] && continue
+        case "$cwd" in
+            "$path"|"$path"/*)
+                local n=${#path}
+                if [ "$n" -gt "$best_len" ]; then
+                    best_len=$n
+                    best_name="$name"
+                fi
+                ;;
+        esac
+    done <<EOF
+$rows
+EOF
+    [ -n "$best_name" ] && printf '%s\n' "$best_name" && return 0
+    return 1
+}
+
 # ----- gitignore helpers ----------------------------------------------------
 
 dh_gitignore_has() {
