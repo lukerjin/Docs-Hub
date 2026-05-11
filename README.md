@@ -1,60 +1,102 @@
-# Docs-Hub — Shared Docs CLI
+# Docs-Hub
 
-A small bash CLI for sharing one body of documentation (plans, architecture
-notes, runbooks) across multiple independent projects via filesystem
-symlinks.
-
-Mental model: a **docs hub**, not a project integrator. Each project sees a
-plain `docs/` directory that's actually a symlink to a single shared root.
-
-```
-~/workplace/shared-docs/             ← the true source
-├── plans/
-├── architecture/
-├── runbooks/
-├── templates/plan.md
-├── docs.config.yml
-├── bin/docs-hub
-└── lib/
-
-~/workplace/projectA/docs            → symlink → ~/workplace/shared-docs
-~/workplace/projectB/docs            → symlink → ~/workplace/shared-docs
-```
+One shared `docs/` folder across many projects, via symlinks. Plans, architecture notes, and runbooks live in one place; every linked repo sees them as a normal `docs/` directory.
 
 ## Install
 
-Clone this repo to wherever you want the shared root to live (e.g.
-`~/workplace/shared-docs`), then put `bin/` on your PATH:
-
 ```bash
+git clone <this-repo> ~/workplace/shared-docs
 echo 'export PATH="$HOME/workplace/shared-docs/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
-docs-hub init                          # creates plans/, architecture/, runbooks/, config
-docs-hub link ~/workplace/projectA
-docs-hub link ~/workplace/projectB
+docs-hub init
+```
+
+That's it. PATH is set, the hub is ready.
+
+## Use it (the 5 commands you'll actually run)
+
+```bash
+# 1. Connect a project. Run once per repo.
+docs-hub link ~/workplace/my-app
+
+# 2. Inside a project, write a new plan. Goes into plans/my-app/ automatically.
+cd ~/workplace/my-app
+docs-hub new plan auth-flow
+
+# 3. For a plan that affects multiple projects:
+docs-hub new plan team-conventions --shared
+
+# 4. See what's there:
+docs-hub ls               # plans, grouped by project
+docs-hub search "auth"    # grep across everything
+
+# 5. Sanity check anytime:
 docs-hub status
 ```
 
-`docs-hub init` defaults to `~/workplace/shared-docs`. To use a different
-location, pass it as the first argument: `docs-hub init ~/Documents/docs`.
+Files end up at `~/workplace/shared-docs/plans/my-app/2026-05-11-auth-flow.md` — and visible from `~/workplace/my-app/docs/plans/my-app/...` via the symlink. Same files, same place.
 
-## Commands
+## What gets shared, what stays separate
 
-| Command | Description |
+```
+shared-docs/
+├── plans/
+│   ├── my-app/       ← only my-app's plans
+│   ├── other-app/    ← only other-app's plans
+│   └── shared/       ← plans that touch >1 project
+├── architecture/     ← shared by convention (flat)
+├── runbooks/         ← shared by convention (flat)
+└── AGENTS.md         ← rules for Codex/Claude (auto-discovered via docs/)
+```
+
+`plans/` is scoped per project. `architecture/` and `runbooks/` are shared by default.
+
+## For AI agents (Codex / Claude Code)
+
+When you `link` a project, the symlink also exposes `docs/AGENTS.md` and `docs/CLAUDE.md` to the AI. They explain:
+
+- which `plans/<name>/` folder belongs to the current repo
+- how to create new plans via the CLI
+- what NOT to touch
+
+Edit `templates/AGENTS.md` to change the rules — they propagate to every linked repo instantly.
+
+## Reference
+
+<details>
+<summary>All commands</summary>
+
+| Command | What it does |
 |---|---|
-| `docs-hub init [<root>] [--git\|--no-git]` | Create the shared-docs root and seed it with directories, a default plan template, and an empty config. Idempotent. |
-| `docs-hub link <project> [--as <dir>]`   | Symlink `<project>/<dir>` (default `docs`) to the shared root. Backs up any existing folder. Updates `.gitignore` if present. |
-| `docs-hub unlink <project>`              | Remove the symlink and unregister the project. Offers to restore the most recent backup. |
-| `docs-hub new plan <slug>`               | Create `plans/YYYY-MM-DD-<slug>.md` from `templates/plan.md`. Pass `--open` to open in `$EDITOR`. |
-| `docs-hub ls [<type>]`                   | List docs (`plans` default, `architecture`, `runbooks`, `all`), newest first. |
-| `docs-hub status`                        | Health report for the root and each linked project. Exit 1 if anything is wrong. |
-| `docs-hub search <keyword> [--all]`      | Grep across docs. Uses `rg` when available, falls back to `grep -rn`. |
+| `docs-hub init [<root>] [--git\|--no-git]` | Set up the shared root. Idempotent. |
+| `docs-hub link <project> [--as <dir>] [--repair]` | Symlink `<project>/docs` → shared root. Backs up existing `docs/`. `--repair` fixes a broken symlink. |
+| `docs-hub unlink <project>` | Remove the symlink, restore backup if any. |
+| `docs-hub new plan <slug> [--shared\|--project <name>] [--open]` | Create `plans/<scope>/YYYY-MM-DD-<slug>.md`. Scope auto-detected from cwd. |
+| `docs-hub ls [<type>] [--project <name>\|--shared]` | List docs. `<type>` = plans (default) / architecture / runbooks / all. |
+| `docs-hub search <keyword> [--all]` | grep across docs. Uses `rg` if available. |
+| `docs-hub status` | Health report. Exit 1 on any problem. |
 
-All commands accept `-h` / `--help`.
+Every command accepts `-h` / `--help`.
 
-## Configuration
+</details>
 
-Project registry lives at `<root>/docs.config.yml`:
+<details>
+<summary>Environment variables</summary>
+
+| Var | Effect |
+|---|---|
+| `DOCSHUB_ROOT` | Use this root instead of the default. |
+| `DOCSHUB_AUTO_OPEN=1` | `new plan` opens `$EDITOR` automatically. |
+| `DOCSHUB_ASSUME_YES=1` | Auto-confirm prompts (CI, scripts). |
+| `EDITOR` | Used by `new plan --open`. Falls back to `vim`. |
+| `NO_COLOR` | Disable colored output. |
+
+</details>
+
+<details>
+<summary>Config file (docs.config.yml)</summary>
+
+Written by the CLI — don't hand-edit:
 
 ```yaml
 version: 1
@@ -69,57 +111,24 @@ settings:
   date_format: "%Y-%m-%d"
 ```
 
-The config is written atomically (tmp file + `mv`).
+The `settings:` block is preserved across `link`/`unlink`, so edits there survive.
 
-## Plan template
+</details>
 
-`templates/plan.md` is rendered on `docs-hub new plan <slug>` with these
-substitutions:
-
-- `{{title}}` — slug with hyphens replaced by spaces, title-cased
-- `{{date}}` — today, ISO (`%Y-%m-%d`)
-- `{{slug}}` — the original slug
-
-Edit `templates/plan.md` to change the shape of new plans.
-
-## Environment variables
-
-| Variable | Purpose |
-|---|---|
-| `DOCSHUB_ROOT` | Override which shared-docs root the CLI operates on. |
-| `DOCSHUB_AUTO_OPEN` | Set to `1` to make `docs-hub new plan` open the file automatically. |
-| `EDITOR` | Used by `docs-hub new plan --open`. Falls back to `vim`. |
-| `NO_COLOR` | Disable ANSI color in output. |
-
-## Platform notes
-
-Targets macOS (BSD `stat`, `date`, `readlink`) but works on Linux too. Bash
-3.2+ is sufficient. Required tools are all standard: `ln`, `find`, `grep`,
-`awk`, `sed`, `mkdir`, `readlink`, `stat`. `rg` is used opportunistically by
-`docs-hub search` if installed.
-
-## Tests
-
-End-to-end smoke test (no framework, plain bash):
+<details>
+<summary>Tests</summary>
 
 ```bash
 ./tests/smoke.sh
 ```
 
-Sets up temp project directories, exercises every command (including
-`--repair`, edge cases, and settings-preservation), and prints
-`passed: N  failed: M`. Exits non-zero on any failure.
+Self-contained 66-assertion end-to-end test. No framework dependencies. Exits non-zero on failure.
 
-## Acceptance checklist
+</details>
 
-See the spec (in handoff doc) for the full acceptance criteria. Quick smoke:
+<details>
+<summary>Platform notes</summary>
 
-```bash
-docs-hub init /tmp/shared-docs
-docs-hub link /tmp/projectA
-docs-hub new plan example-feature
-docs-hub ls
-docs-hub search example
-docs-hub status
-docs-hub unlink /tmp/projectA
-```
+Targets macOS, works on Linux. Bash 3.2+. Uses only standard tools (`ln`, `find`, `grep`, `awk`, `sed`, `mkdir`, `readlink`, `stat`). `rg` is used opportunistically by `search` if installed.
+
+</details>

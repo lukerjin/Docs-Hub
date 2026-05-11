@@ -96,9 +96,14 @@ mkdir -p "$TMP/has space/projectC"
 note "init"
 assert_exit 0 "init creates shared root"        "$DH" init "$DOCSHUB_ROOT" --no-git
 [ -d "$DOCSHUB_ROOT/plans" ] && ok "plans/ dir exists" || fail "plans/ dir exists"
+[ -d "$DOCSHUB_ROOT/plans/shared" ] && ok "plans/shared/ dir exists" || fail "plans/shared/ dir exists"
 [ -d "$DOCSHUB_ROOT/architecture" ] && ok "architecture/ dir exists" || fail "architecture/ dir exists"
 [ -d "$DOCSHUB_ROOT/runbooks" ] && ok "runbooks/ dir exists" || fail "runbooks/ dir exists"
 assert_file  "templates/plan.md exists"         "$DOCSHUB_ROOT/templates/plan.md"
+assert_file  "templates/AGENTS.md exists"       "$DOCSHUB_ROOT/templates/AGENTS.md"
+assert_file  "templates/CLAUDE.md exists"       "$DOCSHUB_ROOT/templates/CLAUDE.md"
+assert_file  "AGENTS.md at root"                "$DOCSHUB_ROOT/AGENTS.md"
+assert_file  "CLAUDE.md at root"                "$DOCSHUB_ROOT/CLAUDE.md"
 assert_file  "docs.config.yml exists"           "$DOCSHUB_ROOT/docs.config.yml"
 assert_exit 0 "init is idempotent (re-run)"     "$DH" init "$DOCSHUB_ROOT" --no-git
 
@@ -117,9 +122,13 @@ assert_exit 0 "link projectA (existing docs, auto-confirm)" "$DH" link "$TMP/pro
 assert_symlink_to "projectA/docs → shared root" "$TMP/projectA/docs" "$DOCSHUB_ROOT"
 [ -d "$TMP/projectA"/docs.bak.* ] && ok "projectA backup created" || fail "projectA backup created"
 assert_contains "projectA .gitignore got /docs" "$TMP/projectA/.gitignore" "/docs"
+[ -d "$DOCSHUB_ROOT/plans/projectA" ] && ok "plans/projectA/ created on link" \
+    || fail "plans/projectA/ created on link"
 
 assert_exit 0 "link projectB (clean)"          "$DH" link "$TMP/projectB"
 assert_symlink_to "projectB/docs → shared root" "$TMP/projectB/docs" "$DOCSHUB_ROOT"
+[ -d "$DOCSHUB_ROOT/plans/projectB" ] && ok "plans/projectB/ created on link" \
+    || fail "plans/projectB/ created on link"
 
 assert_exit 0 "link projectC (space in path, no .gitignore)" "$DH" link "$TMP/has space/projectC"
 assert_symlink_to "projectC/docs → shared root" "$TMP/has space/projectC/docs" "$DOCSHUB_ROOT"
@@ -148,28 +157,72 @@ assert_symlink_to "projectB/docs restored" "$TMP/projectB/docs" "$DOCSHUB_ROOT"
 
 # --- new plan --------------------------------------------------------------
 
-note "new plan"
-assert_exit 2 "invalid slug rejected"       "$DH" new plan "Bad Slug!"
-assert_exit 0 "valid slug accepted"         "$DH" new plan example-feature
+note "new plan (scoping)"
 today="$(date +%F)"
-assert_file  "plan file created"            "$DOCSHUB_ROOT/plans/$today-example-feature.md"
+
+# Invalid slug still rejected.
+assert_exit 2 "invalid slug rejected"       "$DH" new plan "Bad Slug!"
+
+# Without --shared/--project and outside any registered project, must error.
+( cd "$TMP" && assert_exit 2 "no-scope outside any project errors" "$DH" new plan example-feature )
+
+# --shared creates plans/shared/...
+assert_exit 0 "--shared creates plan"       "$DH" new plan example-feature --shared
+assert_file  "shared plan file created"     "$DOCSHUB_ROOT/plans/shared/$today-example-feature.md"
 assert_contains "title rendered title-cased" \
-    "$DOCSHUB_ROOT/plans/$today-example-feature.md" "# Example Feature"
+    "$DOCSHUB_ROOT/plans/shared/$today-example-feature.md" "# Example Feature"
 assert_contains "date rendered" \
-    "$DOCSHUB_ROOT/plans/$today-example-feature.md" "**Date:** $today"
-assert_exit 0 "re-create same plan is a no-op" "$DH" new plan example-feature
+    "$DOCSHUB_ROOT/plans/shared/$today-example-feature.md" "**Date:** $today"
+
+# --project routes to that project's folder.
+assert_exit 0 "--project projectA creates plan" \
+    "$DH" new plan auth-flow --project projectA
+assert_file  "projectA plan file created" \
+    "$DOCSHUB_ROOT/plans/projectA/$today-auth-flow.md"
+
+# Unknown --project rejected.
+assert_exit 1 "--project nosuch rejected" \
+    "$DH" new plan x --project nosuch
+
+# cwd-based auto-detect: inside projectB, no flag needed.
+( cd "$TMP/projectB" && \
+    assert_exit 0 "cwd in projectB infers --project projectB" \
+        "$DH" new plan db-migration )
+assert_file  "projectB plan file created via cwd" \
+    "$DOCSHUB_ROOT/plans/projectB/$today-db-migration.md"
+
+# Idempotent: same slug+scope is a no-op.
+assert_exit 0 "re-create same shared plan is a no-op" \
+    "$DH" new plan example-feature --shared
 
 # --- ls --------------------------------------------------------------------
 
-note "ls"
+note "ls (grouped + filtered)"
 "$DH" ls >/tmp/docs-hub-test-out 2>&1
-assert_contains "ls plans shows new file" /tmp/docs-hub-test-out "example-feature.md"
+assert_contains "ls plans groups shared section"  /tmp/docs-hub-test-out "[shared]"
+assert_contains "ls plans groups projectA"        /tmp/docs-hub-test-out "[projectA]"
+assert_contains "ls plans groups projectB"        /tmp/docs-hub-test-out "[projectB]"
+assert_contains "ls plans includes example file"  /tmp/docs-hub-test-out "example-feature.md"
+
+"$DH" ls plans --project projectA >/tmp/docs-hub-test-out 2>&1
+assert_contains "ls --project shows that project" /tmp/docs-hub-test-out "auth-flow.md"
+grep -q "example-feature.md" /tmp/docs-hub-test-out \
+    && fail "ls --project projectA leaked shared plan" \
+    || ok   "ls --project projectA hides shared plan"
+
+"$DH" ls plans --shared >/tmp/docs-hub-test-out 2>&1
+assert_contains "ls --shared shows shared section" /tmp/docs-hub-test-out "example-feature.md"
+grep -q "auth-flow.md" /tmp/docs-hub-test-out \
+    && fail "ls --shared leaked projectA plan" \
+    || ok   "ls --shared hides projectA plan"
 
 # --- search ----------------------------------------------------------------
 
 note "search"
 "$DH" search "Example Feature" >/tmp/docs-hub-test-out 2>&1
-assert_contains "search finds the plan" /tmp/docs-hub-test-out "example-feature.md"
+assert_contains "search finds the shared plan" /tmp/docs-hub-test-out "example-feature.md"
+"$DH" search "Auth Flow" >/tmp/docs-hub-test-out 2>&1
+assert_contains "search finds the projectA plan" /tmp/docs-hub-test-out "auth-flow.md"
 assert_exit 1 "search miss returns non-zero" "$DH" search definitely-not-there
 
 # --- status ----------------------------------------------------------------

@@ -147,4 +147,8 @@ cmd_link() {
         dh_cfg_add_project "$cfg" "$name" "$project" "$link_as" "$(dh_now_offset)"
         dh_ok "Registered project '$name' in docs.config.yml"
     fi
+
+    # Ensure the per-project scope folder exists so `new plan` writes there
+    # cleanly, and so `ls` shows it (even when empty).
+    mkdir -p -- "$root/plans/$name" "$root/plans/shared" 2>/dev/null || true
 }

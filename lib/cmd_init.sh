@@ -12,9 +12,12 @@ resolved in this order:
      looks like a shared-docs root — has templates/ or docs.config.yml).
   3. ~/workplace/shared-docs
 
-Creates plans/, architecture/, runbooks/, templates/, a default
-templates/plan.md, and an empty docs.config.yml. Re-running on an
-existing root only fills in missing pieces.
+Creates plans/ (with plans/shared/), architecture/, runbooks/,
+templates/, default templates (plan.md, AGENTS.md, CLAUDE.md), and
+an empty docs.config.yml. The AGENTS.md and CLAUDE.md files are also
+copied to the root so they're visible to AI agents through each
+project's docs/ symlink. Re-running on an existing root only fills in
+missing pieces (never overwrites).
 
 Options:
   --git        Run `git init` inside the root after setup.
@@ -73,19 +76,39 @@ cmd_init() {
         fi
     done
 
-    # templates/plan.md: copy from script-relative templates dir if present,
-    # else emit the canonical content.
-    local tpl="$root/templates/plan.md"
-    if [ -f "$tpl" ]; then
-        dh_info "${DH_DIM}·${DH_RESET} templates/plan.md already exists"
-    else
-        if [ -f "$DH_TEMPLATES_DIR/plan.md" ] \
-           && [ "$DH_TEMPLATES_DIR/plan.md" != "$tpl" ]; then
-            cp -- "$DH_TEMPLATES_DIR/plan.md" "$tpl" \
-                || { dh_err "could not write $tpl"; return 1; }
+    # plans/shared/ exists from day 1 so cross-project plans have a home.
+    if [ ! -d "$root/plans/shared" ]; then
+        mkdir -p -- "$root/plans/shared" \
+            || { dh_err "could not create $root/plans/shared"; return 1; }
+        dh_ok "Created plans/shared/"
+    fi
+
+    # Seed templates from the script-relative templates dir (or fall back
+    # to embedded canonical content for plan.md).
+    dh_seed_template() {
+        local rel="$1"  # filename inside templates/
+        local fallback="$2"
+        local dest="$root/templates/$rel"
+        if [ -f "$dest" ]; then
+            dh_info "${DH_DIM}·${DH_RESET} templates/$rel already exists"
+            return 0
+        fi
+        if [ -n "${DH_TEMPLATES_DIR:-}" ] \
+           && [ -f "$DH_TEMPLATES_DIR/$rel" ] \
+           && [ "$DH_TEMPLATES_DIR/$rel" != "$dest" ]; then
+            cp -- "$DH_TEMPLATES_DIR/$rel" "$dest" \
+                || { dh_err "could not write $dest"; return 1; }
+        elif [ -n "$fallback" ]; then
+            printf '%s\n' "$fallback" >"$dest" \
+                || { dh_err "could not write $dest"; return 1; }
         else
-            cat >"$tpl" <<'TPL'
-# {{title}}
+            dh_warn "no source for templates/$rel; skipping"
+            return 0
+        fi
+        dh_ok "Wrote templates/$rel"
+    }
+
+    local plan_fallback='# {{title}}
 
 **Date:** {{date}}
 
@@ -99,11 +122,24 @@ What is being built and why.
 Key decisions, data flow, edge cases.
 
 ## Verification
-How will we know this works? (tests, manual checks, screenshots)
-TPL
+How will we know this works? (tests, manual checks, screenshots)'
+
+    dh_seed_template plan.md   "$plan_fallback" || return 1
+    dh_seed_template AGENTS.md "" || return 1
+    dh_seed_template CLAUDE.md "" || return 1
+
+    # Place the AI-facing manuals at the root so they're visible through
+    # each project's docs/ symlink. We never overwrite a user-edited copy.
+    local f
+    for f in AGENTS.md CLAUDE.md; do
+        if [ -e "$root/$f" ]; then
+            dh_info "${DH_DIM}·${DH_RESET} $f already exists at root"
+        elif [ -f "$root/templates/$f" ]; then
+            cp -- "$root/templates/$f" "$root/$f" \
+                || { dh_err "could not write $root/$f"; return 1; }
+            dh_ok "Wrote $f at root (visible to AI tools via docs/$f)"
         fi
-        dh_ok "Wrote templates/plan.md"
-    fi
+    done
 
     local cfg
     cfg="$(dh_cfg_path "$root")"
