@@ -8,7 +8,7 @@ Mental model: a **docs hub**, not a project integrator. Each project sees a
 plain `docs/` directory that's actually a symlink to a single shared root.
 
 ```
-~/workplace/shared-docs/             ← the true source
+~/workplace/docs-hub/             ← the true source
 ├── AGENTS.md / CLAUDE.md            ← rules for AI agents (auto-shared)
 ├── plans/
 │   ├── <project-name>/              ← per-project plans
@@ -20,8 +20,8 @@ plain `docs/` directory that's actually a symlink to a single shared root.
 ├── bin/docs-hub
 └── lib/
 
-~/workplace/projectA/docs            → symlink → ~/workplace/shared-docs
-~/workplace/projectB/docs            → symlink → ~/workplace/shared-docs
+~/workplace/projectA/docs            → symlink → ~/workplace/docs-hub
+~/workplace/projectB/docs            → symlink → ~/workplace/docs-hub
 ```
 
 ## Install
@@ -33,14 +33,14 @@ no `pip`, no Node, no compile step.
 ### 1. Clone the repo to wherever you want the shared docs to live
 
 The repo's own directory **is** the shared root. The conventional
-location is `~/workplace/shared-docs`:
+location is `~/workplace/docs-hub`:
 
 ```bash
 mkdir -p ~/workplace
-git clone https://github.com/lukerjin/Docs-Hub.git ~/workplace/shared-docs
+git clone https://github.com/lukerjin/Docs-Hub.git ~/workplace/docs-hub
 ```
 
-(If you want it somewhere else, e.g. `~/Documents/shared-docs`, swap
+(If you want it somewhere else, e.g. `~/Documents/docs-hub`, swap
 the path. The CLI works the same.)
 
 ### 2. Put `bin/` on your PATH
@@ -49,11 +49,11 @@ Pick the right line for your shell. Check with `echo $SHELL`:
 
 ```bash
 # zsh (default on macOS):
-echo 'export PATH="$HOME/workplace/shared-docs/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="$HOME/workplace/docs-hub/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
 # bash (most Linux, older macOS):
-echo 'export PATH="$HOME/workplace/shared-docs/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/workplace/docs-hub/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -75,7 +75,7 @@ docs-hub link ~/workplace/projectB
 docs-hub status                        # should show both projects: OK
 ```
 
-`docs-hub init` defaults to `~/workplace/shared-docs`. To use a
+`docs-hub init` defaults to `~/workplace/docs-hub`. To use a
 different location, pass it as the first argument:
 `docs-hub init ~/Documents/docs`.
 
@@ -83,7 +83,7 @@ different location, pass it as the first argument:
 
 | Command | Description |
 |---|---|
-| `docs-hub init [<root>] [--git\|--no-git]` | Create the shared-docs root and seed it with directories, default templates (`plan.md`, `AGENTS.md`, `CLAUDE.md`), and an empty config. Idempotent. |
+| `docs-hub init [<root>] [--git\|--no-git]` | Create the docs-hub root and seed it with directories, default templates (`plan.md`, `AGENTS.md`, `CLAUDE.md`), and an empty config. Idempotent. |
 | `docs-hub link <project> [--as <dir>] [--repair]` | Symlink `<project>/<dir>` (default `docs`) to the shared root. Backs up any existing folder. Updates `.gitignore` if present. Creates `plans/<project-name>/` automatically. `--repair` fixes a broken symlink. |
 | `docs-hub unlink <project>` | Remove the symlink and unregister the project. Offers to restore the most recent backup. |
 | `docs-hub new plan <slug> [--shared\|--project <name>] [--open]` | Create `plans/<scope>/YYYY-MM-DD-<slug>.md` from `templates/plan.md`. Scope is inferred from cwd when inside a registered project; use `--shared` for cross-project, or `--project <name>` to target explicitly. |
@@ -143,7 +143,7 @@ Project registry lives at `<root>/docs.config.yml`:
 
 ```yaml
 version: 1
-root: /Users/alice/workplace/shared-docs
+root: /Users/alice/workplace/docs-hub
 projects:
   - name: my-app
     path: /Users/alice/workplace/my-app
@@ -173,7 +173,7 @@ Edit `templates/plan.md` to change the shape of new plans.
 
 | Variable | Purpose |
 |---|---|
-| `DOCSHUB_ROOT` | Override which shared-docs root the CLI operates on. |
+| `DOCSHUB_ROOT` | Override which docs-hub root the CLI operates on. |
 | `DOCSHUB_AUTO_OPEN` | Set to `1` to make `docs-hub new plan` open the file automatically. |
 | `DOCSHUB_ASSUME_YES` | Set to `1` to auto-confirm prompts (useful in scripts / CI). |
 | `EDITOR` | Used by `docs-hub new plan --open`. Falls back to `vim`. |
@@ -193,7 +193,7 @@ opportunistically by `docs-hub search` if installed.
 PATH didn't take effect. Check:
 
 ```bash
-echo $PATH | tr ':' '\n' | grep shared-docs   # should print the bin path
+echo $PATH | tr ':' '\n' | grep docs-hub   # should print the bin path
 ```
 
 If it doesn't appear, you probably edited the wrong shell rc file or
@@ -202,7 +202,7 @@ vs `~/.bashrc` per [Install §2](#2-put-bin-on-your-path), or just call
 the script directly to confirm it works:
 
 ```bash
-~/workplace/shared-docs/bin/docs-hub --version
+~/workplace/docs-hub/bin/docs-hub --version
 ```
 
 **`Permission denied` running `docs-hub`**
@@ -211,10 +211,10 @@ The script lost its executable bit (rare, but happens after some `git`
 operations on Windows-touched repos):
 
 ```bash
-chmod +x ~/workplace/shared-docs/bin/docs-hub
+chmod +x ~/workplace/docs-hub/bin/docs-hub
 ```
 
-**`shared-docs root not found` from any command**
+**`docs-hub root not found` from any command**
 
 Either the path moved, or `DOCSHUB_ROOT` is set to the wrong place.
 Check what the CLI thinks the root is:
@@ -224,7 +224,7 @@ docs-hub status                  # first line shows the root path
 echo "$DOCSHUB_ROOT"             # empty means "auto-detect"
 ```
 
-If you actually moved the shared-docs directory, just update the PATH
+If you actually moved the docs-hub directory, just update the PATH
 line in your shell rc.
 
 **`link` says my docs already exist with N files — what's safe?**
@@ -272,7 +272,7 @@ prints `passed: N  failed: M`. Exits non-zero on any failure.
 ## Quick smoke
 
 ```bash
-docs-hub init /tmp/shared-docs
+docs-hub init /tmp/docs-hub
 docs-hub link /tmp/projectA
 cd /tmp/projectA
 docs-hub new plan example-feature

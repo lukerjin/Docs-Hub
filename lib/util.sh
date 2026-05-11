@@ -163,10 +163,10 @@ dh_human_size() {
 # DH_SCRIPT_DIR is set by bin/docs-hub before sourcing this file.
 # DH_LIB_DIR likewise.
 
-# Determine which shared-docs root to operate on:
+# Determine which docs-hub root to operate on:
 #   1. $DOCSHUB_ROOT env var
 #   2. directory containing bin/docs-hub that was invoked
-#   3. ~/workplace/shared-docs (default)
+#   3. ~/workplace/docs-hub (default)
 dh_default_root() {
     if [ -n "${DOCSHUB_ROOT:-}" ]; then
         printf '%s\n' "${DOCSHUB_ROOT%/}"
@@ -181,7 +181,7 @@ dh_default_root() {
             return 0
         fi
     fi
-    printf '%s/workplace/shared-docs\n' "$HOME"
+    printf '%s/workplace/docs-hub\n' "$HOME"
 }
 
 # ----- config I/O -----------------------------------------------------------
