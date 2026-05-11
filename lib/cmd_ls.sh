@@ -1,9 +1,9 @@
 # shellcheck shell=bash
-# inkwell ls [<type>]
+# docs-hub ls [<type>]
 
 cmd_ls_help() {
     cat <<'EOF'
-Usage: inkwell ls [<type>]
+Usage: docs-hub ls [<type>]
 
 List docs in the shared root, newest first.
 
@@ -16,7 +16,7 @@ Options:
 EOF
 }
 
-ink_ls_one_dir() {
+dh_ls_one_dir() {
     # Args: <root> <subdir>
     local root="$1" sub="$2"
     local dir="$root/$sub"
@@ -24,8 +24,8 @@ ink_ls_one_dir() {
     # Build tab-separated rows: mtime<TAB>relpath<TAB>size
     find "$dir" -type f -name '*.md' 2>/dev/null | while IFS= read -r f; do
         local m s rel
-        m="$(ink_stat_mtime "$f")"
-        s="$(ink_stat_size "$f")"
+        m="$(dh_stat_mtime "$f")"
+        s="$(dh_stat_size "$f")"
         rel="${f#"$root"/}"
         printf '%s\t%s\t%s\n' "${m:-0}" "$rel" "${s:-0}"
     done
@@ -37,7 +37,7 @@ cmd_ls() {
         case "$1" in
             -h|--help) cmd_ls_help; return 0 ;;
             --) shift; break ;;
-            -*) ink_err "unknown flag: $1"; return 2 ;;
+            -*) dh_err "unknown flag: $1"; return 2 ;;
             *) type="$1"; shift ;;
         esac
     done
@@ -47,29 +47,29 @@ cmd_ls() {
         architecture|arch)         type="architecture" ;;
         runbooks|runbook)          type="runbooks" ;;
         all)                       : ;;
-        *) ink_err "unknown type: $type (plans|architecture|runbooks|all)"; return 2 ;;
+        *) dh_err "unknown type: $type (plans|architecture|runbooks|all)"; return 2 ;;
     esac
 
     local root
-    root="$(ink_default_root)"
+    root="$(dh_default_root)"
     if [ ! -d "$root" ]; then
-        ink_err "shared-docs root not found: $root  (run 'inkwell init')"
+        dh_err "shared-docs root not found: $root  (run 'docs-hub init')"
         return 1
     fi
 
     local rows
     if [ "$type" = "all" ]; then
         rows="$( {
-            ink_ls_one_dir "$root" plans
-            ink_ls_one_dir "$root" architecture
-            ink_ls_one_dir "$root" runbooks
+            dh_ls_one_dir "$root" plans
+            dh_ls_one_dir "$root" architecture
+            dh_ls_one_dir "$root" runbooks
         } )"
     else
-        rows="$(ink_ls_one_dir "$root" "$type")"
+        rows="$(dh_ls_one_dir "$root" "$type")"
     fi
 
     if [ -z "$rows" ]; then
-        ink_info "(no $type docs found in $root)"
+        dh_info "(no $type docs found in $root)"
         return 0
     fi
 
@@ -78,8 +78,8 @@ cmd_ls() {
         | sort -t $'\t' -k1,1nr \
         | while IFS=$'\t' read -r mtime rel size; do
             local d hsize
-            d="$(ink_date_iso_from_epoch "$mtime")"
-            hsize="$(ink_human_size "$size")"
+            d="$(dh_date_iso_from_epoch "$mtime")"
+            hsize="$(dh_human_size "$size")"
             printf '%-50s  %s   %s\n' "$rel" "${d:--}" "$hsize"
         done
 }

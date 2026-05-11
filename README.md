@@ -1,4 +1,4 @@
-# Inkwell — Shared Docs CLI
+# Docs-Hub — Shared Docs CLI
 
 A small bash CLI for sharing one body of documentation (plans, architecture
 notes, runbooks) across multiple independent projects via filesystem
@@ -14,7 +14,7 @@ plain `docs/` directory that's actually a symlink to a single shared root.
 ├── runbooks/
 ├── templates/plan.md
 ├── docs.config.yml
-├── bin/inkwell
+├── bin/docs-hub
 └── lib/
 
 ~/workplace/projectA/docs            → symlink → ~/workplace/shared-docs
@@ -29,26 +29,26 @@ Clone this repo to wherever you want the shared root to live (e.g.
 ```bash
 echo 'export PATH="$HOME/workplace/shared-docs/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
-inkwell init                          # creates plans/, architecture/, runbooks/, config
-inkwell link ~/workplace/projectA
-inkwell link ~/workplace/projectB
-inkwell status
+docs-hub init                          # creates plans/, architecture/, runbooks/, config
+docs-hub link ~/workplace/projectA
+docs-hub link ~/workplace/projectB
+docs-hub status
 ```
 
-`inkwell init` defaults to `~/workplace/shared-docs`. To use a different
-location, pass it as the first argument: `inkwell init ~/Documents/docs`.
+`docs-hub init` defaults to `~/workplace/shared-docs`. To use a different
+location, pass it as the first argument: `docs-hub init ~/Documents/docs`.
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `inkwell init [<root>] [--git\|--no-git]` | Create the shared-docs root and seed it with directories, a default plan template, and an empty config. Idempotent. |
-| `inkwell link <project> [--as <dir>]`   | Symlink `<project>/<dir>` (default `docs`) to the shared root. Backs up any existing folder. Updates `.gitignore` if present. |
-| `inkwell unlink <project>`              | Remove the symlink and unregister the project. Offers to restore the most recent backup. |
-| `inkwell new plan <slug>`               | Create `plans/YYYY-MM-DD-<slug>.md` from `templates/plan.md`. Pass `--open` to open in `$EDITOR`. |
-| `inkwell ls [<type>]`                   | List docs (`plans` default, `architecture`, `runbooks`, `all`), newest first. |
-| `inkwell status`                        | Health report for the root and each linked project. Exit 1 if anything is wrong. |
-| `inkwell search <keyword> [--all]`      | Grep across docs. Uses `rg` when available, falls back to `grep -rn`. |
+| `docs-hub init [<root>] [--git\|--no-git]` | Create the shared-docs root and seed it with directories, a default plan template, and an empty config. Idempotent. |
+| `docs-hub link <project> [--as <dir>]`   | Symlink `<project>/<dir>` (default `docs`) to the shared root. Backs up any existing folder. Updates `.gitignore` if present. |
+| `docs-hub unlink <project>`              | Remove the symlink and unregister the project. Offers to restore the most recent backup. |
+| `docs-hub new plan <slug>`               | Create `plans/YYYY-MM-DD-<slug>.md` from `templates/plan.md`. Pass `--open` to open in `$EDITOR`. |
+| `docs-hub ls [<type>]`                   | List docs (`plans` default, `architecture`, `runbooks`, `all`), newest first. |
+| `docs-hub status`                        | Health report for the root and each linked project. Exit 1 if anything is wrong. |
+| `docs-hub search <keyword> [--all]`      | Grep across docs. Uses `rg` when available, falls back to `grep -rn`. |
 
 All commands accept `-h` / `--help`.
 
@@ -58,10 +58,10 @@ Project registry lives at `<root>/docs.config.yml`:
 
 ```yaml
 version: 1
-root: /Users/jin/workplace/shared-docs
+root: /Users/alice/workplace/shared-docs
 projects:
-  - name: vueadmin
-    path: /Users/jin/workplace/vueadmin
+  - name: my-app
+    path: /Users/alice/workplace/my-app
     link_as: docs
     linked_at: 2026-05-08T10:00:00+10:00
 settings:
@@ -73,7 +73,7 @@ The config is written atomically (tmp file + `mv`).
 
 ## Plan template
 
-`templates/plan.md` is rendered on `inkwell new plan <slug>` with these
+`templates/plan.md` is rendered on `docs-hub new plan <slug>` with these
 substitutions:
 
 - `{{title}}` — slug with hyphens replaced by spaces, title-cased
@@ -86,9 +86,9 @@ Edit `templates/plan.md` to change the shape of new plans.
 
 | Variable | Purpose |
 |---|---|
-| `INKWELL_ROOT` | Override which shared-docs root the CLI operates on. |
-| `INKWELL_AUTO_OPEN` | Set to `1` to make `inkwell new plan` open the file automatically. |
-| `EDITOR` | Used by `inkwell new plan --open`. Falls back to `vim`. |
+| `DOCSHUB_ROOT` | Override which shared-docs root the CLI operates on. |
+| `DOCSHUB_AUTO_OPEN` | Set to `1` to make `docs-hub new plan` open the file automatically. |
+| `EDITOR` | Used by `docs-hub new plan --open`. Falls back to `vim`. |
 | `NO_COLOR` | Disable ANSI color in output. |
 
 ## Platform notes
@@ -96,7 +96,7 @@ Edit `templates/plan.md` to change the shape of new plans.
 Targets macOS (BSD `stat`, `date`, `readlink`) but works on Linux too. Bash
 3.2+ is sufficient. Required tools are all standard: `ln`, `find`, `grep`,
 `awk`, `sed`, `mkdir`, `readlink`, `stat`. `rg` is used opportunistically by
-`inkwell search` if installed.
+`docs-hub search` if installed.
 
 ## Tests
 
@@ -115,11 +115,11 @@ Sets up temp project directories, exercises every command (including
 See the spec (in handoff doc) for the full acceptance criteria. Quick smoke:
 
 ```bash
-inkwell init /tmp/shared-docs
-inkwell link /tmp/projectA
-inkwell new plan example-feature
-inkwell ls
-inkwell search example
-inkwell status
-inkwell unlink /tmp/projectA
+docs-hub init /tmp/shared-docs
+docs-hub link /tmp/projectA
+docs-hub new plan example-feature
+docs-hub ls
+docs-hub search example
+docs-hub status
+docs-hub unlink /tmp/projectA
 ```

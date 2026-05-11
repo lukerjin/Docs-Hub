@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# inkwell — shared docs CLI. See README.md and the spec for details.
+# docs-hub — shared docs CLI. See README.md and the spec for details.
 #
 # Note: we deliberately avoid `set -e` per spec §11 ("no set -e aborts
 # mid-output"). Each command function handles its own errors explicitly.
@@ -7,10 +7,10 @@
 set -u
 set -o pipefail
 
-INK_VERSION="0.1.0"
+DH_VERSION="0.1.0"
 
 # Resolve the directory containing this script, following symlinks one level.
-ink_resolve_self() {
+dh_resolve_self() {
     local src="${BASH_SOURCE[0]}"
     while [ -L "$src" ]; do
         local target
@@ -23,20 +23,20 @@ ink_resolve_self() {
     cd -- "$(dirname -- "$src")" && pwd -P
 }
 
-INK_SCRIPT_DIR="$(ink_resolve_self)"
-INK_LIB_DIR="$(dirname -- "$INK_SCRIPT_DIR")/lib"
-INK_TEMPLATES_DIR="$(dirname -- "$INK_SCRIPT_DIR")/templates"
-export INK_SCRIPT_DIR INK_LIB_DIR INK_TEMPLATES_DIR
+DH_SCRIPT_DIR="$(dh_resolve_self)"
+DH_LIB_DIR="$(dirname -- "$DH_SCRIPT_DIR")/lib"
+DH_TEMPLATES_DIR="$(dirname -- "$DH_SCRIPT_DIR")/templates"
+export DH_SCRIPT_DIR DH_LIB_DIR DH_TEMPLATES_DIR
 
 # shellcheck source=../lib/util.sh
-. "$INK_LIB_DIR/util.sh"
+. "$DH_LIB_DIR/util.sh"
 
 usage() {
     cat <<EOF
-inkwell — shared docs CLI (v$INK_VERSION)
+docs-hub — shared docs CLI (v$DH_VERSION)
 
 Usage:
-  inkwell <command> [args]
+  docs-hub <command> [args]
 
 Commands:
   init [<root>]                  Initialize a shared-docs root (default: ~/workplace/shared-docs)
@@ -49,7 +49,7 @@ Commands:
   help [<command>]               Show help for a command
   version                        Print version
 
-Run 'inkwell <command> --help' for command-specific options.
+Run 'docs-hub <command> --help' for command-specific options.
 EOF
 }
 
@@ -57,11 +57,11 @@ cmd_help() {
     case "${1:-}" in
         init|link|unlink|new|ls|status|search)
             # shellcheck source=/dev/null
-            . "$INK_LIB_DIR/cmd_${1}.sh"
+            . "$DH_LIB_DIR/cmd_${1}.sh"
             "cmd_${1}_help"
             ;;
         ""|help) usage ;;
-        *) ink_err "unknown command: $1"; usage >&2; return 1 ;;
+        *) dh_err "unknown command: $1"; usage >&2; return 1 ;;
     esac
 }
 
@@ -78,38 +78,38 @@ main() {
             fi
             ;;
         version|-v|--version)
-            printf 'inkwell %s\n' "$INK_VERSION"
+            printf 'docs-hub %s\n' "$DH_VERSION"
             ;;
         init)
-            . "$INK_LIB_DIR/cmd_init.sh"
+            . "$DH_LIB_DIR/cmd_init.sh"
             cmd_init "$@"
             ;;
         link)
-            . "$INK_LIB_DIR/cmd_link.sh"
+            . "$DH_LIB_DIR/cmd_link.sh"
             cmd_link "$@"
             ;;
         unlink)
-            . "$INK_LIB_DIR/cmd_unlink.sh"
+            . "$DH_LIB_DIR/cmd_unlink.sh"
             cmd_unlink "$@"
             ;;
         new)
-            . "$INK_LIB_DIR/cmd_new.sh"
+            . "$DH_LIB_DIR/cmd_new.sh"
             cmd_new "$@"
             ;;
         ls)
-            . "$INK_LIB_DIR/cmd_ls.sh"
+            . "$DH_LIB_DIR/cmd_ls.sh"
             cmd_ls "$@"
             ;;
         status)
-            . "$INK_LIB_DIR/cmd_status.sh"
+            . "$DH_LIB_DIR/cmd_status.sh"
             cmd_status "$@"
             ;;
         search)
-            . "$INK_LIB_DIR/cmd_search.sh"
+            . "$DH_LIB_DIR/cmd_search.sh"
             cmd_search "$@"
             ;;
         *)
-            ink_err "unknown command: $cmd"
+            dh_err "unknown command: $cmd"
             usage >&2
             exit 1
             ;;
