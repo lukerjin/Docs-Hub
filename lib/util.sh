@@ -104,8 +104,9 @@ ink_readlink_one() {
 # Resolve a symlink target to an absolute path (one level).
 ink_resolve_link() {
     local p="$1"
+    [ -L "$p" ] || return 1
     local t
-    t="$(ink_readlink_one "$p")" || return 1
+    t="$(ink_readlink_one "$p")"
     [ -z "$t" ] && return 1
     case "$t" in
         /*) printf '%s\n' "$t" ;;
@@ -200,15 +201,18 @@ ink_cfg_init() {
         return 0
     fi
     local tmp="${cfg}.tmp.$$"
-    {
+    if ! {
         printf 'version: 1\n'
         printf 'root: %s\n' "$root"
         printf 'projects: []\n'
         printf 'settings:\n'
         printf '  editor: ""\n'
         printf '  date_format: "%%Y-%%m-%%d"\n'
-    } >"$tmp"
-    mv -- "$tmp" "$cfg"
+    } >"$tmp"; then
+        rm -f -- "$tmp"
+        return 1
+    fi
+    mv -- "$tmp" "$cfg" || { rm -f -- "$tmp"; return 1; }
 }
 
 # Print all project entries as TSV: name<TAB>path<TAB>link_as<TAB>linked_at
@@ -262,23 +266,39 @@ ink_cfg_get_scalar() {
     ' "$cfg"
 }
 
-# Rewrite the config from scratch. Reads existing top-level (root, settings)
-# and replaces the projects list with stdin TSV.
+# Extract the verbatim `settings:` block from an existing config file.
+# Captures the `settings:` line and all following indented (or blank) lines
+# until the next top-level key or EOF. Prints empty if the block is missing.
+ink_cfg_get_settings_block() {
+    local cfg="$1"
+    [ -f "$cfg" ] || return 0
+    awk '
+        /^settings:/ { capture=1; print; next }
+        capture {
+            if ($0 ~ /^[A-Za-z_]/) { exit }
+            print
+        }
+    ' "$cfg"
+}
+
+# Rewrite the config. Preserves the existing `settings:` block and `root:`
+# scalar; replaces the `projects:` list with TSV read from stdin.
 ink_cfg_write_projects() {
     local cfg="$1"
     local root_val
     root_val="$(ink_cfg_get_scalar "$cfg" root)"
     [ -z "$root_val" ] && root_val="$(dirname -- "$cfg")"
 
-    # Capture incoming TSV lines.
+    local settings_block
+    settings_block="$(ink_cfg_get_settings_block "$cfg")"
+
+    local lines
+    lines="$(cat)"
+
     local tmp="${cfg}.tmp.$$"
-    {
+    if ! {
         printf 'version: 1\n'
         printf 'root: %s\n' "$root_val"
-        # projects
-        local count=0
-        local lines
-        lines="$(cat)"
         if [ -z "$lines" ]; then
             printf 'projects: []\n'
         else
@@ -289,16 +309,22 @@ ink_cfg_write_projects() {
                 printf '    path: %s\n' "$path"
                 printf '    link_as: %s\n' "$link_as"
                 printf '    linked_at: %s\n' "$linked_at"
-                count=$((count+1))
             done <<EOF
 $lines
 EOF
         fi
-        printf 'settings:\n'
-        printf '  editor: ""\n'
-        printf '  date_format: "%%Y-%%m-%%d"\n'
-    } >"$tmp"
-    mv -- "$tmp" "$cfg"
+        if [ -n "$settings_block" ]; then
+            printf '%s\n' "$settings_block"
+        else
+            printf 'settings:\n'
+            printf '  editor: ""\n'
+            printf '  date_format: "%%Y-%%m-%%d"\n'
+        fi
+    } >"$tmp"; then
+        rm -f -- "$tmp"
+        return 1
+    fi
+    mv -- "$tmp" "$cfg" || { rm -f -- "$tmp"; return 1; }
 }
 
 # Add or update a project entry (dedupe by absolute path).
