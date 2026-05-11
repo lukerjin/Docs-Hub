@@ -150,18 +150,18 @@ How will we know this works? (tests, manual checks, screenshots)'
         dh_ok "Wrote docs.config.yml"
     fi
 
-    # Optional git-init.
-    if [ "$git_mode" = "yes" ] || { [ "$git_mode" = "" ] && dh_prompt_yn "Initialize a git repo in $root?"; }; then
-        if [ -d "$root/.git" ]; then
-            dh_info "${DH_DIM}·${DH_RESET} git repo already present"
+    # Optional git-init. Only prompt when there's no existing repo — a
+    # freshly-cloned root already has .git/, so asking would be noise.
+    if [ -d "$root/.git" ]; then
+        dh_info "${DH_DIM}·${DH_RESET} git repo already present"
+    elif [ "$git_mode" = "yes" ] \
+        || { [ "$git_mode" = "" ] && dh_prompt_yn "Initialize a git repo in $root?"; }; then
+        if command -v git >/dev/null 2>&1; then
+            ( cd "$root" && git init -q ) \
+                && dh_ok "Initialized git repo" \
+                || dh_warn "git init failed"
         else
-            if command -v git >/dev/null 2>&1; then
-                ( cd "$root" && git init -q ) \
-                    && dh_ok "Initialized git repo" \
-                    || dh_warn "git init failed"
-            else
-                dh_warn "git not found on PATH; skipping git init"
-            fi
+            dh_warn "git not found on PATH; skipping git init"
         fi
     fi
 
@@ -171,10 +171,22 @@ How will we know this works? (tests, manual checks, screenshots)'
         dh_ok "Created $root/"
     fi
 
-    cat <<EOF
+    # Tailor the "next steps" message:
+    #   - if our bin is already on PATH (most likely, since the user just
+    #     ran us by name), only suggest the link step
+    #   - otherwise, also remind them how to add it
+    local on_path="no"
+    case ":$PATH:" in
+        *":$root/bin:"*) on_path="yes" ;;
+    esac
 
-Next: add to PATH and link your first project →
-  echo 'export PATH="$root/bin:\$PATH"' >> ~/.zshrc
-  docs-hub link <path-to-your-project>
-EOF
+    printf '\n'
+    if [ "$on_path" = "yes" ]; then
+        printf 'Next: link your first project →\n'
+        printf '  docs-hub link <path-to-your-project>\n'
+    else
+        printf 'Next: add to PATH and link your first project →\n'
+        printf '  echo '\''export PATH="%s/bin:$PATH"'\'' >> ~/.zshrc\n' "$root"
+        printf '  docs-hub link <path-to-your-project>\n'
+    fi
 }
