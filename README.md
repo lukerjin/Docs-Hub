@@ -79,6 +79,50 @@ docs-hub status                        # should show both projects: OK
 different location, pass it as the first argument:
 `docs-hub init ~/Documents/docs`.
 
+## Already have a `docs/` folder?
+
+By default, `docs-hub link <project>` symlinks `<project>/docs/` to
+the shared root and backs up any existing folder to
+`docs.bak.<timestamp>` (nothing deleted, fully reversible). That's
+fine if your existing `docs/` is empty, stale, or contains
+generated artifacts.
+
+If you have a **real, in-use** `docs/` you want to keep, link under
+a different directory name with `--as`:
+
+```bash
+docs-hub link /Users/jin/workplace/vueadmin --as docs-hub
+```
+
+Now the project looks like:
+
+```
+vueadmin/
+├── docs/         ← your original files, untouched
+└── docs-hub/    ← symlink → shared root
+```
+
+**AI tradeoff**: tools like Codex / Claude Code auto-discover
+`docs/AGENTS.md` and `docs/CLAUDE.md`. If you used `--as docs-hub`,
+the AI won't find them at the standard path. Easiest workaround:
+drop a one-line `CLAUDE.md` (or `AGENTS.md`) at the project root
+that imports the real one:
+
+```markdown
+@./docs-hub/AGENTS.md
+```
+
+(Or copy `AGENTS.md` to the project root — but you'll then have to
+keep it in sync manually. The import line is cheaper.)
+
+Already linked with the default and want to switch? Roll back, then
+re-link:
+
+```bash
+docs-hub unlink /Users/jin/workplace/vueadmin              # restores the backup
+docs-hub link  /Users/jin/workplace/vueadmin --as docs-hub
+```
+
 ## Commands
 
 | Command | Description |
@@ -233,6 +277,11 @@ You'll be prompted. On confirm, the existing `<project>/docs/` is moved
 to `<project>/docs.bak.<timestamp>` (nothing deleted). To restore, run
 `docs-hub unlink <project>` — it'll offer to restore the most recent
 backup.
+
+If those N files are real, in-use project docs you want to keep, answer
+**N**, then re-link with `--as docs-hub` so the shared root mounts at
+`docs-hub/` instead of stomping on `docs/`. See
+[Already have a `docs/` folder?](#already-have-a-docs-folder).
 
 **`status` reports `BROKEN` for a project**
 
