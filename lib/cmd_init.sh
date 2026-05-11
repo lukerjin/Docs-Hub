@@ -5,8 +5,12 @@ cmd_init_help() {
     cat <<'EOF'
 Usage: inkwell init [<root-path>] [--git|--no-git]
 
-Initialize a shared-docs root. If <root-path> is omitted, defaults to
-~/workplace/shared-docs.
+Initialize a shared-docs root. If <root-path> is omitted, the root is
+resolved in this order:
+  1. $INKWELL_ROOT
+  2. The parent of the directory containing the `inkwell` script (when it
+     looks like a shared-docs root — has templates/ or docs.config.yml).
+  3. ~/workplace/shared-docs
 
 Creates plans/, architecture/, runbooks/, templates/, a default
 templates/plan.md, and an empty docs.config.yml. Re-running on an
@@ -39,7 +43,11 @@ cmd_init() {
     done
 
     if [ -z "$root" ]; then
-        root="$HOME/workplace/shared-docs"
+        # Fall back to the shared root resolver so init and the other
+        # commands agree on which root to operate on. This makes `inkwell
+        # init` Just Work after the user clones the repo to a non-default
+        # location (the script's parent dir becomes the root).
+        root="$(ink_default_root)"
     fi
     root="$(ink_abs_path "$root")"
 

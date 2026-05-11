@@ -26,7 +26,7 @@ ink_ls_one_dir() {
         local m s rel
         m="$(ink_stat_mtime "$f")"
         s="$(ink_stat_size "$f")"
-        rel="${f#$root/}"
+        rel="${f#"$root"/}"
         printf '%s\t%s\t%s\n' "${m:-0}" "$rel" "${s:-0}"
     done
 }

@@ -42,9 +42,12 @@ cmd_status() {
     n_arch=$( find "$root/architecture" -maxdepth 4 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
     n_run=$(  find "$root/runbooks"     -maxdepth 4 -type f -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
 
-    printf 'Shared docs: %s    (%s plan%s, %s architecture, %s runbook%s)\n' \
-        "$root" "$n_plans" "$( [ "$n_plans" = 1 ] || printf s )" \
-        "$n_arch" "$n_run" "$( [ "$n_run" = 1 ] || printf s )"
+    local s_plans="s" s_arch="" s_run="s"
+    [ "$n_plans" = 1 ] && s_plans=""
+    [ "$n_arch" = 1 ] || s_arch="s"
+    [ "$n_run" = 1 ] && s_run=""
+    printf 'Shared docs: %s    (%s plan%s, %s architecture note%s, %s runbook%s)\n' \
+        "$root" "$n_plans" "$s_plans" "$n_arch" "$s_arch" "$n_run" "$s_run"
 
     if [ ! -f "$cfg" ]; then
         ink_warn "docs.config.yml not found at $cfg"

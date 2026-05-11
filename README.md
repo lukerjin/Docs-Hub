@@ -98,6 +98,18 @@ Targets macOS (BSD `stat`, `date`, `readlink`) but works on Linux too. Bash
 `awk`, `sed`, `mkdir`, `readlink`, `stat`. `rg` is used opportunistically by
 `inkwell search` if installed.
 
+## Tests
+
+End-to-end smoke test (no framework, plain bash):
+
+```bash
+./tests/smoke.sh
+```
+
+Sets up temp project directories, exercises every command (including
+`--repair`, edge cases, and settings-preservation), and prints
+`passed: N  failed: M`. Exits non-zero on any failure.
+
 ## Acceptance checklist
 
 See the spec (in handoff doc) for the full acceptance criteria. Quick smoke:
