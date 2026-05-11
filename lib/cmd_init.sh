@@ -150,18 +150,18 @@ How will we know this works? (tests, manual checks, screenshots)'
         dh_ok "Wrote docs.config.yml"
     fi
 
-    # Optional git-init.
-    if [ "$git_mode" = "yes" ] || { [ "$git_mode" = "" ] && dh_prompt_yn "Initialize a git repo in $root?"; }; then
-        if [ -d "$root/.git" ]; then
-            dh_info "${DH_DIM}·${DH_RESET} git repo already present"
+    # Optional git-init. Only prompt when there's no existing repo — a
+    # freshly-cloned root already has .git/, so asking would be noise.
+    if [ -d "$root/.git" ]; then
+        dh_info "${DH_DIM}·${DH_RESET} git repo already present"
+    elif [ "$git_mode" = "yes" ] \
+        || { [ "$git_mode" = "" ] && dh_prompt_yn "Initialize a git repo in $root?"; }; then
+        if command -v git >/dev/null 2>&1; then
+            ( cd "$root" && git init -q ) \
+                && dh_ok "Initialized git repo" \
+                || dh_warn "git init failed"
         else
-            if command -v git >/dev/null 2>&1; then
-                ( cd "$root" && git init -q ) \
-                    && dh_ok "Initialized git repo" \
-                    || dh_warn "git init failed"
-            else
-                dh_warn "git not found on PATH; skipping git init"
-            fi
+            dh_warn "git not found on PATH; skipping git init"
         fi
     fi
 
