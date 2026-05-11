@@ -171,10 +171,22 @@ How will we know this works? (tests, manual checks, screenshots)'
         dh_ok "Created $root/"
     fi
 
-    cat <<EOF
+    # Tailor the "next steps" message:
+    #   - if our bin is already on PATH (most likely, since the user just
+    #     ran us by name), only suggest the link step
+    #   - otherwise, also remind them how to add it
+    local on_path="no"
+    case ":$PATH:" in
+        *":$root/bin:"*) on_path="yes" ;;
+    esac
 
-Next: add to PATH and link your first project →
-  echo 'export PATH="$root/bin:\$PATH"' >> ~/.zshrc
-  docs-hub link <path-to-your-project>
-EOF
+    printf '\n'
+    if [ "$on_path" = "yes" ]; then
+        printf 'Next: link your first project →\n'
+        printf '  docs-hub link <path-to-your-project>\n'
+    else
+        printf 'Next: add to PATH and link your first project →\n'
+        printf '  echo '\''export PATH="%s/bin:$PATH"'\'' >> ~/.zshrc\n' "$root"
+        printf '  docs-hub link <path-to-your-project>\n'
+    fi
 }
