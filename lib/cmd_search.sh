@@ -1,9 +1,9 @@
 # shellcheck shell=bash
-# inkwell search <keyword> [--all]
+# docs-hub search <keyword> [--all]
 
 cmd_search_help() {
     cat <<'EOF'
-Usage: inkwell search <keyword> [--all]
+Usage: docs-hub search <keyword> [--all]
 
 Grep across all docs in the shared root. Uses ripgrep (`rg`) when
 available; falls back to `grep -rn` otherwise. Results are limited to
@@ -24,10 +24,10 @@ cmd_search() {
             -h|--help) cmd_search_help; return 0 ;;
             --all) all="yes"; shift ;;
             --) shift; break ;;
-            -*) ink_err "unknown flag: $1"; return 2 ;;
+            -*) dh_err "unknown flag: $1"; return 2 ;;
             *)
                 if [ -z "$keyword" ]; then keyword="$1"
-                else ink_err "unexpected argument: $1 (quote multi-word patterns)"; return 2; fi
+                else dh_err "unexpected argument: $1 (quote multi-word patterns)"; return 2; fi
                 shift
                 ;;
         esac
@@ -36,8 +36,8 @@ cmd_search() {
     [ -z "$keyword" ] && { cmd_search_help >&2; return 2; }
 
     local root
-    root="$(ink_default_root)"
-    [ -d "$root" ] || { ink_err "shared-docs root not found: $root"; return 1; }
+    root="$(dh_default_root)"
+    [ -d "$root" ] || { dh_err "shared-docs root not found: $root"; return 1; }
 
     local limit=50
     [ "$all" = "yes" ] && limit=0
@@ -60,7 +60,7 @@ cmd_search() {
     fi
 
     if [ -z "$out" ]; then
-        ink_info "(no matches for '$keyword' in $root)"
+        dh_info "(no matches for '$keyword' in $root)"
         return 1
     fi
 
@@ -69,7 +69,7 @@ cmd_search() {
     if [ "$limit" -gt 0 ] && [ "$total" -gt "$limit" ]; then
         printf '%s\n' "$out" | head -n "$limit"
         printf '%s%s more hit(s) — pass --all to see them.%s\n' \
-            "$INK_DIM" "$((total - limit))" "$INK_RESET"
+            "$DH_DIM" "$((total - limit))" "$DH_RESET"
     else
         printf '%s\n' "$out"
     fi

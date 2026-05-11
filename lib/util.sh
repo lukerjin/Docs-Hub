@@ -1,38 +1,38 @@
 # shellcheck shell=bash
-# Shared helpers for inkwell. Sourced by bin/inkwell and lib/cmd_*.sh.
+# Shared helpers for docs-hub. Sourced by bin/docs-hub and lib/cmd_*.sh.
 
 # ----- logging --------------------------------------------------------------
 
-ink_is_tty() { [ -t 1 ]; }
+dh_is_tty() { [ -t 1 ]; }
 
-if ink_is_tty && [ "${NO_COLOR:-}" = "" ]; then
-    INK_GREEN=$'\033[32m'
-    INK_YELLOW=$'\033[33m'
-    INK_RED=$'\033[31m'
-    INK_DIM=$'\033[2m'
-    INK_BOLD=$'\033[1m'
-    INK_RESET=$'\033[0m'
+if dh_is_tty && [ "${NO_COLOR:-}" = "" ]; then
+    DH_GREEN=$'\033[32m'
+    DH_YELLOW=$'\033[33m'
+    DH_RED=$'\033[31m'
+    DH_DIM=$'\033[2m'
+    DH_BOLD=$'\033[1m'
+    DH_RESET=$'\033[0m'
 else
-    INK_GREEN=""; INK_YELLOW=""; INK_RED=""; INK_DIM=""; INK_BOLD=""; INK_RESET=""
+    DH_GREEN=""; DH_YELLOW=""; DH_RED=""; DH_DIM=""; DH_BOLD=""; DH_RESET=""
 fi
 
-ink_ok()   { printf '%s\n' "${INK_GREEN}✓${INK_RESET} $*"; }
-ink_info() { printf '%s\n' "$*"; }
-ink_warn() { printf '%s\n' "${INK_YELLOW}⚠${INK_RESET}  $*" >&2; }
-ink_err()  { printf '%s\n' "${INK_RED}✗${INK_RESET} $*" >&2; }
-ink_die()  { ink_err "$*"; exit 1; }
+dh_ok()   { printf '%s\n' "${DH_GREEN}✓${DH_RESET} $*"; }
+dh_info() { printf '%s\n' "$*"; }
+dh_warn() { printf '%s\n' "${DH_YELLOW}⚠${DH_RESET}  $*" >&2; }
+dh_err()  { printf '%s\n' "${DH_RED}✗${DH_RESET} $*" >&2; }
+dh_die()  { dh_err "$*"; exit 1; }
 
-ink_prompt_yn() {
-    # Usage: ink_prompt_yn "question" [default_yes]
+dh_prompt_yn() {
+    # Usage: dh_prompt_yn "question" [default_yes]
     # Returns 0 for yes, 1 for no.
-    # Honors INKWELL_ASSUME_YES=1 for non-interactive auto-confirm.
+    # Honors DOCSHUB_ASSUME_YES=1 for non-interactive auto-confirm.
     # Reads from /dev/tty when available so it still works under piped stdin.
     local q="$1"
     local default_yes="${2:-}"
     local hint="[y/N]"
     [ -n "$default_yes" ] && hint="[Y/n]"
 
-    if [ "${INKWELL_ASSUME_YES:-0}" = "1" ]; then
+    if [ "${DOCSHUB_ASSUME_YES:-0}" = "1" ]; then
         printf '%s %s y (auto)\n' "$q" "$hint" >&2
         return 0
     fi
@@ -60,11 +60,11 @@ ink_prompt_yn() {
 
 # ----- platform shims -------------------------------------------------------
 
-ink_uname="$(uname 2>/dev/null || echo unknown)"
+dh_uname="$(uname 2>/dev/null || echo unknown)"
 
 # Resolve a path to an absolute, symlink-free path.
 # Works on macOS (BSD) and Linux without GNU coreutils.
-ink_abs_path() {
+dh_abs_path() {
     local p="$1"
     [ -z "$p" ] && return 1
     # expand leading ~
@@ -93,7 +93,7 @@ ink_abs_path() {
 }
 
 # Read the immediate symlink target (one level). Empty if not a symlink.
-ink_readlink_one() {
+dh_readlink_one() {
     local p="$1"
     if [ -L "$p" ]; then
         # BSD readlink and GNU readlink both support no-flag single-level read
@@ -102,11 +102,11 @@ ink_readlink_one() {
 }
 
 # Resolve a symlink target to an absolute path (one level).
-ink_resolve_link() {
+dh_resolve_link() {
     local p="$1"
     [ -L "$p" ] || return 1
     local t
-    t="$(ink_readlink_one "$p")"
+    t="$(dh_readlink_one "$p")"
     [ -z "$t" ] && return 1
     case "$t" in
         /*) printf '%s\n' "$t" ;;
@@ -115,9 +115,9 @@ ink_resolve_link() {
 }
 
 # mtime in unix seconds.
-ink_stat_mtime() {
+dh_stat_mtime() {
     local p="$1"
-    if [ "$ink_uname" = "Darwin" ]; then
+    if [ "$dh_uname" = "Darwin" ]; then
         stat -f '%m' -- "$p" 2>/dev/null
     else
         stat -c '%Y' -- "$p" 2>/dev/null
@@ -125,9 +125,9 @@ ink_stat_mtime() {
 }
 
 # size in bytes.
-ink_stat_size() {
+dh_stat_size() {
     local p="$1"
-    if [ "$ink_uname" = "Darwin" ]; then
+    if [ "$dh_uname" = "Darwin" ]; then
         stat -f '%z' -- "$p" 2>/dev/null
     else
         stat -c '%s' -- "$p" 2>/dev/null
@@ -135,19 +135,19 @@ ink_stat_size() {
 }
 
 # ISO date for an epoch (yyyy-mm-dd).
-ink_date_iso_from_epoch() {
+dh_date_iso_from_epoch() {
     local s="$1"
-    if [ "$ink_uname" = "Darwin" ]; then
+    if [ "$dh_uname" = "Darwin" ]; then
         date -r "$s" '+%Y-%m-%d' 2>/dev/null
     else
         date -d "@$s" '+%Y-%m-%d' 2>/dev/null
     fi
 }
 
-ink_today() { date '+%Y-%m-%d'; }
-ink_now_offset() { date '+%Y-%m-%dT%H:%M:%S%z'; }
+dh_today() { date '+%Y-%m-%d'; }
+dh_now_offset() { date '+%Y-%m-%dT%H:%M:%S%z'; }
 
-ink_human_size() {
+dh_human_size() {
     local b="${1:-0}"
     if [ "$b" -lt 1024 ]; then
         printf '%s B' "$b"
@@ -160,22 +160,22 @@ ink_human_size() {
 
 # ----- root + script discovery ---------------------------------------------
 
-# INK_SCRIPT_DIR is set by bin/inkwell before sourcing this file.
-# INK_LIB_DIR likewise.
+# DH_SCRIPT_DIR is set by bin/docs-hub before sourcing this file.
+# DH_LIB_DIR likewise.
 
 # Determine which shared-docs root to operate on:
-#   1. $INKWELL_ROOT env var
-#   2. directory containing bin/inkwell that was invoked
+#   1. $DOCSHUB_ROOT env var
+#   2. directory containing bin/docs-hub that was invoked
 #   3. ~/workplace/shared-docs (default)
-ink_default_root() {
-    if [ -n "${INKWELL_ROOT:-}" ]; then
-        printf '%s\n' "${INKWELL_ROOT%/}"
+dh_default_root() {
+    if [ -n "${DOCSHUB_ROOT:-}" ]; then
+        printf '%s\n' "${DOCSHUB_ROOT%/}"
         return 0
     fi
-    if [ -n "${INK_SCRIPT_DIR:-}" ]; then
+    if [ -n "${DH_SCRIPT_DIR:-}" ]; then
         # bin/ sits inside the root; root = parent of bin
         local maybe_root
-        maybe_root="$(dirname -- "$INK_SCRIPT_DIR")"
+        maybe_root="$(dirname -- "$DH_SCRIPT_DIR")"
         if [ -f "$maybe_root/docs.config.yml" ] || [ -d "$maybe_root/templates" ]; then
             printf '%s\n' "$maybe_root"
             return 0
@@ -187,16 +187,16 @@ ink_default_root() {
 # ----- config I/O -----------------------------------------------------------
 # We use a known YAML schema; no full parser needed. See spec §6.
 
-ink_cfg_path() {
-    local root="${1:-$(ink_default_root)}"
+dh_cfg_path() {
+    local root="${1:-$(dh_default_root)}"
     printf '%s/docs.config.yml\n' "$root"
 }
 
 # Write a fresh config file with no projects.
-ink_cfg_init() {
+dh_cfg_init() {
     local root="$1"
     local cfg
-    cfg="$(ink_cfg_path "$root")"
+    cfg="$(dh_cfg_path "$root")"
     if [ -f "$cfg" ]; then
         return 0
     fi
@@ -216,7 +216,7 @@ ink_cfg_init() {
 }
 
 # Print all project entries as TSV: name<TAB>path<TAB>link_as<TAB>linked_at
-ink_cfg_list_projects() {
+dh_cfg_list_projects() {
     local cfg="$1"
     [ -f "$cfg" ] || return 0
     awk '
@@ -254,7 +254,7 @@ ink_cfg_list_projects() {
 }
 
 # Print the value of a top-level scalar (root, version).
-ink_cfg_get_scalar() {
+dh_cfg_get_scalar() {
     local cfg="$1" key="$2"
     [ -f "$cfg" ] || return 1
     awk -v k="$key" '
@@ -269,7 +269,7 @@ ink_cfg_get_scalar() {
 # Extract the verbatim `settings:` block from an existing config file.
 # Captures the `settings:` line and all following indented (or blank) lines
 # until the next top-level key or EOF. Prints empty if the block is missing.
-ink_cfg_get_settings_block() {
+dh_cfg_get_settings_block() {
     local cfg="$1"
     [ -f "$cfg" ] || return 0
     awk '
@@ -283,14 +283,14 @@ ink_cfg_get_settings_block() {
 
 # Rewrite the config. Preserves the existing `settings:` block and `root:`
 # scalar; replaces the `projects:` list with TSV read from stdin.
-ink_cfg_write_projects() {
+dh_cfg_write_projects() {
     local cfg="$1"
     local root_val
-    root_val="$(ink_cfg_get_scalar "$cfg" root)"
+    root_val="$(dh_cfg_get_scalar "$cfg" root)"
     [ -z "$root_val" ] && root_val="$(dirname -- "$cfg")"
 
     local settings_block
-    settings_block="$(ink_cfg_get_settings_block "$cfg")"
+    settings_block="$(dh_cfg_get_settings_block "$cfg")"
 
     local lines
     lines="$(cat)"
@@ -328,37 +328,37 @@ EOF
 }
 
 # Add or update a project entry (dedupe by absolute path).
-ink_cfg_add_project() {
+dh_cfg_add_project() {
     local cfg="$1" name="$2" path="$3" link_as="$4" linked_at="$5"
     local rows
-    rows="$(ink_cfg_list_projects "$cfg" 2>/dev/null || true)"
+    rows="$(dh_cfg_list_projects "$cfg" 2>/dev/null || true)"
     {
         if [ -n "$rows" ]; then
             printf '%s\n' "$rows" | awk -F'\t' -v p="$path" '$2 != p { print }'
         fi
         printf '%s\t%s\t%s\t%s\n' "$name" "$path" "$link_as" "$linked_at"
-    } | ink_cfg_write_projects "$cfg"
+    } | dh_cfg_write_projects "$cfg"
 }
 
 # Remove a project entry by absolute path.
-ink_cfg_remove_project() {
+dh_cfg_remove_project() {
     local cfg="$1" path="$2"
     local rows
-    rows="$(ink_cfg_list_projects "$cfg" 2>/dev/null || true)"
+    rows="$(dh_cfg_list_projects "$cfg" 2>/dev/null || true)"
     if [ -z "$rows" ]; then
-        ink_cfg_write_projects "$cfg" </dev/null
+        dh_cfg_write_projects "$cfg" </dev/null
         return 0
     fi
     printf '%s\n' "$rows" \
         | awk -F'\t' -v p="$path" '$2 != p { print }' \
-        | ink_cfg_write_projects "$cfg"
+        | dh_cfg_write_projects "$cfg"
 }
 
 # Look up a project by absolute path. Prints TSV row or returns 1.
-ink_cfg_find_project() {
+dh_cfg_find_project() {
     local cfg="$1" path="$2"
     local rows
-    rows="$(ink_cfg_list_projects "$cfg" 2>/dev/null || true)"
+    rows="$(dh_cfg_list_projects "$cfg" 2>/dev/null || true)"
     [ -z "$rows" ] && return 1
     printf '%s\n' "$rows" \
         | awk -F'\t' -v p="$path" '$2 == p { print; found=1 } END { exit !found }'
@@ -366,7 +366,7 @@ ink_cfg_find_project() {
 
 # ----- gitignore helpers ----------------------------------------------------
 
-ink_gitignore_has() {
+dh_gitignore_has() {
     local file="$1" entry="$2"
     [ -f "$file" ] || return 1
     # Match exact line, with or without leading slash variants stripped
@@ -377,12 +377,12 @@ ink_gitignore_has() {
     ' "$file"
 }
 
-ink_gitignore_add() {
+dh_gitignore_add() {
     local file="$1" entry="$2"
     if [ ! -f "$file" ]; then
         return 2  # signal: no .gitignore present
     fi
-    if ink_gitignore_has "$file" "$entry"; then
+    if dh_gitignore_has "$file" "$entry"; then
         return 1  # already present
     fi
     # ensure trailing newline before append

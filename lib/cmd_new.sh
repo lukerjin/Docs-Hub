@@ -1,9 +1,9 @@
 # shellcheck shell=bash
-# inkwell new plan <slug> [--open]
+# docs-hub new plan <slug> [--open]
 
 cmd_new_help() {
     cat <<'EOF'
-Usage: inkwell new <type> <slug> [--open]
+Usage: docs-hub new <type> <slug> [--open]
 
 Create a new doc from a template. Currently supported <type>: plan.
 
@@ -16,7 +16,7 @@ If the file already exists, the path is printed and nothing is overwritten.
 
 Options:
   --open       Open the new file in $EDITOR (or vim) after creation.
-               Implied if INKWELL_AUTO_OPEN=1.
+               Implied if DOCSHUB_AUTO_OPEN=1.
   -h, --help   Show this help.
 EOF
 }
@@ -28,11 +28,11 @@ cmd_new() {
             -h|--help) cmd_new_help; return 0 ;;
             --open) do_open="yes"; shift ;;
             --) shift; break ;;
-            -*) ink_err "unknown flag: $1"; return 2 ;;
+            -*) dh_err "unknown flag: $1"; return 2 ;;
             *)
                 if [ -z "$type" ]; then type="$1"
                 elif [ -z "$slug" ]; then slug="$1"
-                else ink_err "unexpected argument: $1"; return 2; fi
+                else dh_err "unexpected argument: $1"; return 2; fi
                 shift
                 ;;
         esac
@@ -42,37 +42,37 @@ cmd_new() {
 
     case "$type" in
         plan|plans) type="plans" ;;
-        *) ink_err "unsupported type: $type (supported: plan)"; return 2 ;;
+        *) dh_err "unsupported type: $type (supported: plan)"; return 2 ;;
     esac
 
     if ! printf '%s' "$slug" | grep -Eq '^[a-z0-9][a-z0-9-]*$'; then
-        ink_err "slug must be kebab-case (lowercase letters, digits, hyphens; must start with letter or digit)"
-        ink_err "got: $slug"
+        dh_err "slug must be kebab-case (lowercase letters, digits, hyphens; must start with letter or digit)"
+        dh_err "got: $slug"
         return 2
     fi
 
     local root tpl out
-    root="$(ink_default_root)"
+    root="$(dh_default_root)"
     if [ ! -d "$root" ]; then
-        ink_err "shared-docs root not found: $root  (run 'inkwell init')"
+        dh_err "shared-docs root not found: $root  (run 'docs-hub init')"
         return 1
     fi
     tpl="$root/templates/plan.md"
     if [ ! -f "$tpl" ]; then
-        ink_err "template not found: $tpl"
+        dh_err "template not found: $tpl"
         return 1
     fi
 
     local date today
-    today="$(ink_today)"
+    today="$(dh_today)"
     out="$root/plans/$today-$slug.md"
 
     if [ -e "$out" ]; then
-        ink_info "$out"
+        dh_info "$out"
         return 0
     fi
 
-    mkdir -p -- "$root/plans" || { ink_err "could not create $root/plans"; return 1; }
+    mkdir -p -- "$root/plans" || { dh_err "could not create $root/plans"; return 1; }
 
     # Title: replace - with space, then title-case each word.
     local title
@@ -94,12 +94,12 @@ cmd_new() {
             gsub(/\{\{slug\}\}/,  slug)
             print
         }
-    ' "$tpl" >"$out" || { ink_err "could not write $out"; return 1; }
+    ' "$tpl" >"$out" || { dh_err "could not write $out"; return 1; }
 
-    ink_ok "$out"
+    dh_ok "$out"
 
-    if [ "$do_open" = "yes" ] || [ "${INKWELL_AUTO_OPEN:-0}" = "1" ]; then
+    if [ "$do_open" = "yes" ] || [ "${DOCSHUB_AUTO_OPEN:-0}" = "1" ]; then
         local ed="${EDITOR:-vim}"
-        "$ed" "$out" || ink_warn "editor exited with non-zero status"
+        "$ed" "$out" || dh_warn "editor exited with non-zero status"
     fi
 }

@@ -1,9 +1,9 @@
 # shellcheck shell=bash
-# inkwell status
+# docs-hub status
 
 cmd_status_help() {
     cat <<'EOF'
-Usage: inkwell status
+Usage: docs-hub status
 
 Health report for the shared-docs root and all linked projects.
 
@@ -24,16 +24,16 @@ cmd_status() {
     while [ $# -gt 0 ]; do
         case "$1" in
             -h|--help) cmd_status_help; return 0 ;;
-            *) ink_err "unexpected argument: $1"; return 2 ;;
+            *) dh_err "unexpected argument: $1"; return 2 ;;
         esac
     done
 
     local root cfg
-    root="$(ink_default_root)"
-    cfg="$(ink_cfg_path "$root")"
+    root="$(dh_default_root)"
+    cfg="$(dh_cfg_path "$root")"
 
     if [ ! -d "$root" ]; then
-        ink_err "shared-docs root not found: $root  (run 'inkwell init')"
+        dh_err "shared-docs root not found: $root  (run 'docs-hub init')"
         return 1
     fi
 
@@ -50,14 +50,14 @@ cmd_status() {
         "$root" "$n_plans" "$s_plans" "$n_arch" "$s_arch" "$n_run" "$s_run"
 
     if [ ! -f "$cfg" ]; then
-        ink_warn "docs.config.yml not found at $cfg"
+        dh_warn "docs.config.yml not found at $cfg"
         return 1
     fi
 
     local rows
-    rows="$(ink_cfg_list_projects "$cfg")"
+    rows="$(dh_cfg_list_projects "$cfg")"
     if [ -z "$rows" ]; then
-        printf 'Projects: (none registered yet — run `inkwell link <project>`)\n'
+        printf 'Projects: (none registered yet — run `docs-hub link <project>`)\n'
         return 0
     fi
 
@@ -72,9 +72,9 @@ cmd_status() {
             detail="project path missing"
         elif [ -L "$link" ]; then
             local target target_abs
-            target="$(ink_resolve_link "$link" 2>/dev/null || true)"
+            target="$(dh_resolve_link "$link" 2>/dev/null || true)"
             target_abs=""
-            [ -n "$target" ] && target_abs="$(ink_abs_path "$target")"
+            [ -n "$target" ] && target_abs="$(dh_abs_path "$target")"
             if [ -z "$target" ] || [ ! -e "$link" ]; then
                 status="BROKEN"
                 detail="symlink target missing: ${target:-?}"
@@ -93,7 +93,7 @@ cmd_status() {
         local gi="$path/.gitignore"
         local gi_mark="-"
         if [ -f "$gi" ]; then
-            if ink_gitignore_has "$gi" "/$link_as"; then
+            if dh_gitignore_has "$gi" "/$link_as"; then
                 gi_mark="✓"
             else
                 gi_mark="✗"
@@ -102,26 +102,26 @@ cmd_status() {
 
         local status_colored
         case "$status" in
-            OK)      status_colored="${INK_GREEN}OK${INK_RESET}" ;;
-            MISSING) status_colored="${INK_YELLOW}MISSING${INK_RESET}"; any_bad=1 ;;
-            BROKEN)  status_colored="${INK_RED}BROKEN${INK_RESET}";  any_bad=1 ;;
-            STALE)   status_colored="${INK_RED}STALE${INK_RESET}";   any_bad=1 ;;
+            OK)      status_colored="${DH_GREEN}OK${DH_RESET}" ;;
+            MISSING) status_colored="${DH_YELLOW}MISSING${DH_RESET}"; any_bad=1 ;;
+            BROKEN)  status_colored="${DH_RED}BROKEN${DH_RESET}";  any_bad=1 ;;
+            STALE)   status_colored="${DH_RED}STALE${DH_RESET}";   any_bad=1 ;;
         esac
 
         printf '  %-12s %-50s %s/ → %s   .gitignore: %s\n' \
             "$name" "$path" "$link_as" "$status_colored" "$gi_mark"
         if [ -n "$detail" ]; then
-            printf '               %s%s%s\n' "$INK_DIM" "$detail" "$INK_RESET"
+            printf '               %s%s%s\n' "$DH_DIM" "$detail" "$DH_RESET"
         fi
     done <<EOF
 $rows
 EOF
 
     if [ "$any_bad" -eq 0 ]; then
-        ink_ok "All OK."
+        dh_ok "All OK."
         return 0
     else
-        ink_warn "Some projects are not OK."
+        dh_warn "Some projects are not OK."
         return 1
     fi
 }
